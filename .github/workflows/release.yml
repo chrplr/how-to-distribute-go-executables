@@ -1,0 +1,231 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # required to create GitHub releases
+
+env:
+  CLI: hello-world-cli
+  GUI: hello-world-gui
+  # Noto Sans SC variable font — embedded into the GUI binary for CJK support.
+  NOTO_FONT: cmd/hello-world-gui/fonts/NotoSansSC.ttf
+  NOTO_URL: https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf
+
+jobs:
+
+  # ── CLI ────────────────────────────────────────────────────────────────────
+  # Pure Go (CGO_ENABLED=0): all six targets cross-compiled from one runner.
+  build-cli:
+    name: CLI · ${{ matrix.artifact_os }}/${{ matrix.artifact_arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goos: linux,   goarch: amd64, artifact_os: linux,   artifact_arch: x86_64, ext: "",     archive: tar.gz}
+          - {goos: linux,   goarch: arm64, artifact_os: linux,   artifact_arch: arm64,  ext: "",     archive: tar.gz}
+          - {goos: darwin,  goarch: amd64, artifact_os: macos,   artifact_arch: x86_64, ext: "",     archive: tar.gz}
+          - {goos: darwin,  goarch: arm64, artifact_os: macos,   artifact_arch: arm64,  ext: "",     archive: tar.gz}
+          - {goos: windows, goarch: amd64, artifact_os: windows, artifact_arch: x86_64, ext: ".exe", archive: zip}
+          - {goos: windows, goarch: arm64, artifact_os: windows, artifact_arch: arm64,  ext: ".exe", archive: zip}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build and archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${{ github.ref_name }}"
+          BINARY="${{ env.CLI }}${{ matrix.ext }}"
+          ARCHIVE="${{ env.CLI }}-${VERSION}-${{ matrix.artifact_os }}-${{ matrix.artifact_arch }}"
+          go build -o "$BINARY" ./cmd/${{ env.CLI }}
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip "${ARCHIVE}.zip" "$BINARY"
+          else
+            tar czf "${ARCHIVE}.tar.gz" "$BINARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.artifact_os }}-${{ matrix.artifact_arch }}
+          path: "${{ env.CLI }}-*"
+
+  # ── GUI · Linux ────────────────────────────────────────────────────────────
+  # Native CGO build. Full X11/Wayland/Vulkan dev packages installed on runner.
+  # arm64 uses GitHub's native ubuntu-24.04-arm hosted runner.
+  build-gui-linux:
+    name: GUI · Linux/${{ matrix.artifact_arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-latest,    artifact_arch: x86_64}
+          - {runner: ubuntu-24.04-arm, artifact_arch: arm64}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libx11-xcb-dev libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev
+      - name: Cache font
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NOTO_FONT }}
+          key: noto-sans-sc-font
+      - name: Download font
+        run: make fonts
+      - name: Build and archive
+        run: |
+          VERSION="${{ github.ref_name }}"
+          ARCHIVE="${{ env.GUI }}-${VERSION}-linux-${{ matrix.artifact_arch }}"
+          go build -o ${{ env.GUI }} ./cmd/${{ env.GUI }}
+          tar czf "${ARCHIVE}.tar.gz" ${{ env.GUI }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-linux-${{ matrix.artifact_arch }}
+          path: "${{ env.GUI }}-*"
+
+  # ── GUI · macOS ────────────────────────────────────────────────────────────
+  # Native CGO build using Gio's Metal backend. No extra packages required.
+  # macos-latest = Apple Silicon (arm64); macos-13 = Intel (x86_64).
+  build-gui-macos:
+    name: GUI · macOS/${{ matrix.artifact_arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-latest, artifact_arch: arm64}
+          - {runner: macos-13,     artifact_arch: x86_64}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Cache font
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NOTO_FONT }}
+          key: noto-sans-sc-font
+      - name: Download font
+        run: make fonts
+      - name: Build and archive
+        run: |
+          VERSION="${{ github.ref_name }}"
+          ARCHIVE="${{ env.GUI }}-${VERSION}-macos-${{ matrix.artifact_arch }}"
+          go build -o ${{ env.GUI }} ./cmd/${{ env.GUI }}
+          tar czf "${ARCHIVE}.tar.gz" ${{ env.GUI }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-macos-${{ matrix.artifact_arch }}
+          path: "${{ env.GUI }}-*"
+
+  # ── GUI · Windows ──────────────────────────────────────────────────────────
+  # Gio's D3D11 backend is pure Go → CGO_ENABLED=0, cross-compiled from Linux.
+  build-gui-windows:
+    name: GUI · Windows/${{ matrix.artifact_arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goarch: amd64, artifact_arch: x86_64}
+          - {goarch: arm64, artifact_arch: arm64}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Cache font
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NOTO_FONT }}
+          key: noto-sans-sc-font
+      - name: Download font
+        run: make fonts
+      - name: Build and archive
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${{ github.ref_name }}"
+          BINARY="${{ env.GUI }}.exe"
+          ARCHIVE="${{ env.GUI }}-${VERSION}-windows-${{ matrix.artifact_arch }}"
+          go build -o "$BINARY" ./cmd/${{ env.GUI }}
+          zip "${ARCHIVE}.zip" "$BINARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-windows-${{ matrix.artifact_arch }}
+          path: "${{ env.GUI }}-*"
+
+  # ── GUI · WebAssembly ──────────────────────────────────────────────────────
+  # Gio's WebGL backend (js/wasm). Produces a self-contained web bundle.
+  build-web:
+    name: GUI · WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Cache font
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NOTO_FONT }}
+          key: noto-sans-sc-font
+      - name: Download font
+        run: make fonts
+      - name: Build web bundle
+        run: |
+          VERSION="${{ github.ref_name }}"
+          make web
+          zip -j "${{ env.GUI }}-${VERSION}-web.zip" \
+            bin/web/hello-world-gui.wasm \
+            bin/web/wasm_exec.js \
+            bin/web/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-web
+          path: "${{ env.GUI }}-*-web.zip"
+
+  # ── Release ────────────────────────────────────────────────────────────────
+  # Collect all artifacts and publish the GitHub release.
+  release:
+    name: Publish GitHub Release
+    needs:
+      - build-cli
+      - build-gui-linux
+      - build-gui-macos
+      - build-gui-windows
+      - build-web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: List artifacts
+        run: ls -lh artifacts/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**
+          generate_release_notes: true
