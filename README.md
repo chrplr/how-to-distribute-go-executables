@@ -1,10 +1,10 @@
 Hello Go
 --------
 
-[Go](https://go.dev) makes cross-compiling very easy, if one sticks to pure-go and command-line (cli) applications. 
+[Go](https://go.dev) makes cross-compiling very easy (provided one sticks to pure-go and avoids CGO).
 
+To compile for Windows, Linux and Mac (amd64 architecture), the following `main.go` file:
 
-Thus, given a source file `main.go` such as:
 
 ```go
 package main
@@ -16,21 +16,66 @@ func main() {
 }
 ```
 
-You can compile it for Windows, Linux and Mac (amd64 achitecture):
+One only has to run the bash commands:
 
 ```bash
-GOARCH=amd64
 for GOOS in windows darwin linux
 do
-    go build -o main-$OS main.go
+    go build -o main-$GOOS main.go
 done
 ```
 
 ---
 
-Yes packaging Go binaries to distribute to end-users on various platforms is not completely trivial. The currents document describes a possible approach.
+Packaging Go binaries to distribute to end-users on various platforms is not completely trivial is not trivial however. 
 
-It contains two simple "Hello World"" applicatons, one cli and one gui (relying on [gio](https://gioui.org/))
+
+This document describes a possible approach.
+
+The current project contains two simple "Hello World" applications:
+
+```
+cmd/
+├── hello-world-cli/   # command-line application
+└── hello-world-gui/   # graphical application (Gio)
+```
+
+Graphical applications often require assets (graphic or sound files, fonts,...) and are more tricky to distribute.
+
+
+## Prerequisites to build
+
+- [Go](https://go.dev/dl/) 1.25 or later
+- `make`
+- `curl` (used by `make fonts` to download the embedded CJK font)
+
+On Linux, building the GUI natively also requires X11/Wayland/Vulkan development headers:
+
+```bash
+sudo apt install libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+                 libx11-xcb-dev libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev
+```
+
+## Command-line application
+
+The CLI prints "Hello, 世界" to the terminal and exits.
+
+```bash
+make cli
+./bin/hello-world-cli
+```
+
+## Graphical application
+
+
+The GUI opens a window displaying "Hello, 世界" using the [Gio](https://gioui.org/) toolkit.
+The [Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC) font (OFL license)
+is embedded in the binary to ensure correct rendering of Chinese characters on all platforms.
+
+```bash
+make gui
+./bin/hello-world-gui
+```
 
 ## Building with Make
 
@@ -41,10 +86,12 @@ A `Makefile` is provided to build the project. All outputs go into `bin/`.
 | `make` or `make all` | Build CLI and GUI for the current platform → `bin/` |
 | `make cli` | Build the CLI only → `bin/hello-world-cli` |
 | `make gui` | Build the GUI only → `bin/hello-world-gui` |
+| `make fonts` | Download the embedded Noto Sans SC font (~17 MB, OFL license) |
 | `make web` | Compile the GUI to WebAssembly and assemble the web bundle → `bin/web/` |
 | `make serve` | Build the web bundle and start a local HTTP server on port 8080 |
 | `make build-multiplatform` | Cross-compile both apps for all supported OS/arch combinations → `bin/multiplatform/` |
 | `make clean` | Remove the entire `bin/` directory |
+| `make help` | List all available targets |
 
 ### Cross-compilation notes
 
@@ -57,18 +104,17 @@ backend varies by OS:
 | `linux/amd64` | yes | native build |
 | `linux/arm64` | if available | requires `gcc-aarch64-linux-gnu` (`apt install gcc-aarch64-linux-gnu`) |
 | `windows/amd64`, `windows/arm64` | yes | D3D11 backend is pure Go |
-| `darwin/amd64`, `darwin/arm64` | skipped | Metal backend requires [osxcross](https://github.com/tpoechtrager/osxcross) |
+| `darwin/arm64` | yes | Metal backend, native build on Apple Silicon |
 | `js/wasm` | yes | WebGL backend, no CGO needed |
 
 
-## Creating the binaries with Github Actions
+## Creating the binaries with GitHub Actions
 
-If your project is linked to remote repository on github, you can compile and package your software on Github's machine. It appear in the *Releases* section of yourselves github project's page.
+If your project is linked to a remote repository on GitHub, you can compile and package your
+software on GitHub's machines. The result appears in the *Releases* section of your project page.
 
-Check out the [release.yml](.github/worflows/release.yml) file for this very project.
-
-It follows my [] (Releases-Naming-Conventions.md)
-
+Check out the [release.yml](.github/workflows/release.yml) file for this very project.
+It follows the [Releases Naming Conventions](Releases-Naming-Conventions.md) described in this repo.
 
 
 ## Installing and running the binaries
@@ -79,20 +125,17 @@ Should just work.
 
 ### Windows
 
-On first use, Microsoft Defender may warn you to the program is dangerous, by you can just click on more info and start it anyway.
+On first use, Microsoft Defender may warn you that the program is dangerous, but you can
+click on "More info" and start it anyway.
 
-### MacOS
+### macOS
 
-At first start, your application will  block with a more or less scary message from you Mac.
-This is because macOS includes a security system called Gatekeeper that checks whether an application has been reviewed and digitally signed by Apple. 
-It is not the case of my applications as I am am not an Apple Developer.
+At first start, your application will be blocked with a more or less scary message from your Mac.
+This is because macOS includes a security system called Gatekeeper that checks whether an
+application has been reviewed and digitally signed by Apple.
+It is not the case for applications distributed here, as signing requires an Apple Developer account.
 
-Send your users to  https://chrplr.github.io/note-about-macos-unsigned-apps to address the issue.
-
-
-
-
-
+See [macOS installation and security](https://chrplr.github.io/note-about-macos-unsigned-apps) to address the issue.
 
 
 ## Running the GUI in a browser (WebAssembly)
@@ -133,4 +176,3 @@ Navigate to <http://localhost:8080> in your browser. The Gio window will render
 inside the page and display "Hello, 世界".
 
 Press `Ctrl+C` in the terminal to stop the server.
-
