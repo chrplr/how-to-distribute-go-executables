@@ -82,7 +82,8 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
             libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
-            libx11-xcb-dev libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev
+            libx11-xcb-dev libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev \
+            imagemagick
       - name: Cache font
         uses: actions/cache@v4
         with:
