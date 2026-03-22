@@ -27,8 +27,8 @@ var notoSansSC []byte
 func main() {
 	go func() {
 		w := new(app.Window)
-		w.Option(app.Title("Hello, 世界"))
-		w.Option(app.Size(unit.Dp(400), unit.Dp(200)))
+		w.Option(app.Title("Hello World"))
+		w.Option(app.Size(unit.Dp(600), unit.Dp(200)))
 		if err := run(w); err != nil {
 			log.Fatal(err)
 		}
@@ -43,13 +43,14 @@ func run(w *app.Window) error {
 		log.Fatalf("parse font: %v", err)
 	}
 
-	// Start with the standard Go fonts, then append Noto Sans SC so the
-	// shaper can fall back to it for any character not covered by gofont.
-	collection := gofont.Collection()
-	collection = append(collection, font.FontFace{
+	// Put Noto Sans SC first so both Latin and CJK glyphs come from the same
+	// typeface, giving consistent stroke weight across the whole string.
+	// gofont is kept as a fallback for any characters not covered by Noto SC.
+	collection := []font.FontFace{{
 		Font: font.Font{Typeface: "Noto Sans SC"},
 		Face: face,
-	})
+	}}
+	collection = append(collection, gofont.Collection()...)
 
 	th := material.NewTheme()
 	th.Shaper = text.NewShaper(text.WithCollection(collection))
