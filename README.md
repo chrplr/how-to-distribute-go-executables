@@ -27,12 +27,12 @@ done
 
 ---
 
-Packaging Go binaries to distribute to end-users on various platforms is not completely trivial is not trivial however. 
+Yet, packaging Go binaries to distribute to end-users on various platforms is not always easy. In particular, Graphical applications often require assets (graphic or sound files, fonts,...) and are more tricky to distribute.
 
 
-This document describes a possible approach.
+This document describes a possible approach. 
 
-The current project contains two simple "Hello World" applications:
+The current project features two simple "Hello World" applications:
 
 ```
 cmd/
@@ -40,46 +40,18 @@ cmd/
 └── hello-world-gui/   # graphical application (Gio)
 ```
 
-Graphical applications often require assets (graphic or sound files, fonts,...) and are more tricky to distribute.
 
-
-## Prerequisites to build
-
-- [Go](https://go.dev/dl/) 1.25 or later
-- `make`
-- `curl` (used by `make fonts` to download the embedded CJK font)
-
-On Linux, building the GUI natively also requires X11/Wayland/Vulkan development headers:
-
-```bash
-sudo apt install libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
-                 libx11-xcb-dev libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev
-```
-
-## Command-line application
-
-The CLI prints "Hello, 世界" to the terminal and exits.
-
-```bash
-make cli
-./bin/hello-world-cli
-```
-
-## Graphical application
-
-
-The GUI opens a window displaying "Hello, 世界" using the [Gio](https://gioui.org/) toolkit.
-The [Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC) font (OFL license)
-is embedded in the binary to ensure correct rendering of Chinese characters on all platforms.
-
-```bash
-make gui
-./bin/hello-world-gui
-```
+The CLI prints "Hello, 世界" to the terminal and exits. The GUI opens a window displaying "Hello, 世界".
 
 ## Building with Make
 
-A `Makefile` is provided to build the project. All outputs go into `bin/`.
+*Prerequisites*:
+
+* [Go](https://go.dev/dl/) 1.25 or later
+* `make`
+* `curl` (used by `make fonts` to download the embedded CJK font)
+
+To compile the apps on your computer, a [Makefile](Makefile) is provided to build the project. All outputs go into `bin/`.
 
 | Target | Description |
 |---|---|
@@ -92,6 +64,35 @@ A `Makefile` is provided to build the project. All outputs go into `bin/`.
 | `make build-multiplatform` | Cross-compile both apps for all supported OS/arch combinations → `bin/multiplatform/` |
 | `make clean` | Remove the entire `bin/` directory |
 | `make help` | List all available targets |
+
+
+
+### Command-line application
+
+```bash
+make cli
+./bin/hello-world-cli
+```
+
+### Graphical application
+
+Compiling the GUI app requires to download the [Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC) font (OFL license)
+This font will be embedded in the binary to ensure correct rendering of Chinese characters on all platforms.
+
+```bash
+make gui
+./bin/hello-world-gui
+```
+
+(Note: On Linux, building the GUI natively also requires X11/Wayland/Vulkan development headers:
+
+```bash
+sudo apt install libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+                 libx11-xcb-dev libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev
+```
+)
+
+
 
 ### Cross-compilation notes
 
@@ -110,25 +111,38 @@ backend varies by OS:
 
 ## Creating the binaries with GitHub Actions
 
-If your project is linked to a remote repository on GitHub, you can compile and package your
-software on GitHub's machines. The result appears in the *Releases* section of your project page.
+If your project is linked to a remote repository on GitHub, **you can compile and package your
+software on GitHub's machines.** The result appears in the *Releases* section of your project page.
 
 Check out the [release.yml](.github/workflows/release.yml) file for this very project.
 It follows the [Releases Naming Conventions](Releases-Naming-Conventions.md) described in this repo.
 
 
-## Installing and running the binaries
+### Installing and running Github's binarys
 
-### Linux
+The relases are at <https://github.com/chrplr/how-to-distribute-go-executables/releases>
 
-Should just work.
+### Linux (x86_64)
 
-### Windows
+**GUI**: Download [hello-world-gui-v0.1.1-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-linux-x86_64.tar.gz)
+Untar it, and click on the app. It should just work.
+
+**CLI**: Download [hello-world-cli-v0.1.1-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-linux-x86_64.tar.gz)Open a terminal int the folder, Enter `./hello-world-cli` and press Enter.
+
+### Windows (x86_64)
+
+**GUI**: [hello-world-gui-v0.1.1-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-windows-x86_64.zip)
+
+**CLI**: [[hello-world-cli-v0.1.1-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-windows-x86_64.zip)
 
 On first use, Microsoft Defender may warn you that the program is dangerous, but you can
 click on "More info" and start it anyway.
 
-### macOS
+### macOS (M1, M2, ...)
+
+**GUI**: https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-macos-arm64.tar.gz
+
+**CLI**: https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-macos-arm64.tar.gz
 
 At first start, your application will be blocked with a more or less scary message from your Mac.
 This is because macOS includes a security system called Gatekeeper that checks whether an
