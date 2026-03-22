@@ -1,43 +1,36 @@
 Hello Go
 --------
 
-[Go](https://go.dev) makes cross-compiling very easy, if one sticks to pure-go and command-line (cli) applications. Here is an example :
+[Go](https://go.dev) makes cross-compiling very easy, if one sticks to pure-go and command-line (cli) applications. 
 
-```bash
-export CGO_ENABLED=0  # enforce pure-go
 
-for PLATFORM in "windows/amd64" "windows/arm64" "linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64"; do
+Thus, given a source file `main.go` such as:
 
-    # Split the platform string into OS and ARCH
-    IFS="/" read -r -a ARRAY <<< "$PLATFORM"
-    GOOS=${ARRAY[0]}
-    GOARCH=${ARRAY[1]}
-    
-    # Set the output filename (adding .exe for windows)
-    OUTPUT_NAME="${APP_NAME}-${GOOS}-${GOARCH}"
-    if [ "$GOOS" = "windows" ]; then
-        OUTPUT_NAME+='.exe'
-    fi
+```go
+package main
 
-    export GOOS=$GOOS
-    export GOARCH=$GOARCH
+import "fmt"
 
-    go build -o "bin/$OUTPUT_NAME" main.go
-
-done
-
+func main() {
+    fmt.Println("Hello, 世界")
+}
 ```
 
-But packaging Go binaries for end-users on various platforms is not trivial.
+You can compile it for Windows, Linux and Mac (amd64 achitecture):
 
-This repository outlines a possible approach.
+```bash
+GOARCH=amd64
+for GOOS in windows darwin linux
+do
+    go build -o main-$OS main.go
+done
+```
 
-It contains a cli and a gui application in `cmd/'
+---
 
-# command-line application
+Yes packaging Go binaries to distribute to end-users on various platforms is not completely trivial. The currents document describes a possible approach.
 
-# graphical application
-
+It contains two simple "Hello World"" applicatons, one cli and one gui (relying on [gio](https://gioui.org/))
 
 ## Building with Make
 
@@ -66,6 +59,41 @@ backend varies by OS:
 | `windows/amd64`, `windows/arm64` | yes | D3D11 backend is pure Go |
 | `darwin/amd64`, `darwin/arm64` | skipped | Metal backend requires [osxcross](https://github.com/tpoechtrager/osxcross) |
 | `js/wasm` | yes | WebGL backend, no CGO needed |
+
+
+## Creating the binaries with Github Actions
+
+If your project is linked to remote repository on github, you can compile and package your software on Github's machine. It appear in the *Releases* section of yourselves github project's page.
+
+Check out the [release.yml](.github/worflows/release.yml) file for this very project.
+
+It follows my [] (Releases-Naming-Conventions.md)
+
+
+
+## Installing and running the binaries
+
+### Linux
+
+Should just work.
+
+### Windows
+
+On first use, Microsoft Defender may warn you to the program is dangerous, by you can just click on more info and start it anyway.
+
+### MacOS
+
+At first start, your application will  block with a more or less scary message from you Mac.
+This is because macOS includes a security system called Gatekeeper that checks whether an application has been reviewed and digitally signed by Apple. 
+It is not the case of my applications as I am am not an Apple Developer.
+
+Send your users to  https://chrplr.github.io/note-about-macos-unsigned-apps to address the issue.
+
+
+
+
+
+
 
 ## Running the GUI in a browser (WebAssembly)
 
