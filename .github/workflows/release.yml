@@ -134,14 +134,15 @@ jobs:
           cp ${{ env.GUI }}                                        ${PKG}/usr/bin/
           cp packaging/linux/hello-world-gui.desktop               ${PKG}/usr/share/applications/
           cp AppDir/hello-world-gui.png                            ${PKG}/usr/share/pixmaps/
-          cat > ${PKG}/DEBIAN/control <<EOF
-          Package: hello-world-gui
-          Version: ${{ github.ref_name }}
-          Architecture: ${DEB_ARCH}
-          Maintainer: chrplr
-          Description: Hello World graphical application
-           A simple Hello World GUI built with Go and Gio.
-          EOF
+          # dpkg requires the version to start with a digit — strip the leading 'v'
+          DEB_VERSION="${{ github.ref_name }}"
+          DEB_VERSION="${DEB_VERSION#v}"
+          printf 'Package: hello-world-gui\n'                          >  ${PKG}/DEBIAN/control
+          printf 'Version: %s\n'        "${DEB_VERSION}"               >> ${PKG}/DEBIAN/control
+          printf 'Architecture: %s\n'   "${DEB_ARCH}"                  >> ${PKG}/DEBIAN/control
+          printf 'Maintainer: chrplr\n'                                >> ${PKG}/DEBIAN/control
+          printf 'Description: Hello World graphical application\n'    >> ${PKG}/DEBIAN/control
+          printf ' A simple Hello World GUI built with Go and Gio.\n'  >> ${PKG}/DEBIAN/control
           dpkg-deb --build ${PKG} \
             "${{ env.GUI }}-linux-${{ matrix.artifact_arch }}.deb"
 
