@@ -3,7 +3,7 @@ Hello Go
 
 [Go](https://go.dev) makes cross-compiling very easy (provided one sticks to pure-go and avoids CGO).
 
-To compile for Windows, Linux and Mac (amd64 architecture), the following `main.go` file:
+To compile for Windows, Linux and Mac (x86_64 architecture) the following `main.go` file:
 
 
 ```go
@@ -243,4 +243,10 @@ backend varies by OS:
 | `darwin/arm64` | yes | Metal backend, native build on Apple Silicon |
 | `js/wasm` | yes | WebGL backend, no CGO needed |
 
+---
 
+Author: Christophe Pallier
+
+Date: 2026/03/22
+
+License: CC BY-SA (see [LICENSE.txt](LICENSE.txt))
