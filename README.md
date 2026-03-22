@@ -109,26 +109,26 @@ Raw archives include the version number in their filename.
 
 #### Linux (x86_64)
 
-**GUI**: Download [hello-world-gui-v0.1.2-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.2/hello-world-gui-v0.1.2-linux-x86_64.tar.gz),
+**GUI**: Download [hello-world-gui-v0.1.3-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-gui-v0.1.3-linux-x86_64.tar.gz),
 untar it, and run the binary.
 
-**CLI**: Download [hello-world-cli-v0.1.2-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.2/hello-world-cli-v0.1.2-linux-x86_64.tar.gz),
+**CLI**: Download [hello-world-cli-v0.1.3-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-cli-v0.1.3-linux-x86_64.tar.gz),
 open a terminal in the folder, and run `./hello-world-cli`.
 
 #### Windows (x86_64)
 
-**GUI**: [hello-world-gui-v0.1.2-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.2/hello-world-gui-v0.1.2-windows-x86_64.zip)
+**GUI**: [hello-world-gui-v0.1.3-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-gui-v0.1.3-windows-x86_64.zip)
 
-**CLI**: [hello-world-cli-v0.1.2-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.2/hello-world-cli-v0.1.2-windows-x86_64.zip)
+**CLI**: [hello-world-cli-v0.1.3-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-cli-v0.1.3-windows-x86_64.zip)
 
 On first use, Microsoft Defender may show a "Windows protected your PC" warning.
 Click **More info** → **Run anyway** to proceed.
 
 #### macOS (M1, M2, ...)
 
-**GUI**: [hello-world-gui-v0.1.2-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.2/hello-world-gui-v0.1.2-macos-arm64.tar.gz)
+**GUI**: [hello-world-gui-v0.1.3-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-gui-v0.1.3-macos-arm64.tar.gz)
 
-**CLI**: [hello-world-cli-v0.1.2-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.2/hello-world-cli-v0.1.2-macos-arm64.tar.gz)
+**CLI**: [hello-world-cli-v0.1.3-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-cli-v0.1.3-macos-arm64.tar.gz)
 
 At first start your application will be blocked by macOS Gatekeeper, because it is not signed
 with an Apple Developer certificate. See
