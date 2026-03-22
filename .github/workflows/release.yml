@@ -18,7 +18,8 @@ env:
 jobs:
 
   # ── CLI ────────────────────────────────────────────────────────────────────
-  # Pure Go (CGO_ENABLED=0): all six targets cross-compiled from one runner.
+  # Pure Go (CGO_ENABLED=0): all targets cross-compiled from one runner.
+  # Produces versioned raw archives only (no installer for a CLI tool).
   build-cli:
     name: CLI · ${{ matrix.artifact_os }}/${{ matrix.artifact_arch }}
     runs-on: ubuntu-latest
@@ -60,6 +61,7 @@ jobs:
   # ── GUI · Linux ────────────────────────────────────────────────────────────
   # Native CGO build. Full X11/Wayland/Vulkan dev packages installed on runner.
   # arm64 uses GitHub's native ubuntu-24.04-arm hosted runner.
+  # Produces: versioned .tar.gz + AppImage (stable name) + .deb (stable name).
   build-gui-linux:
     name: GUI · Linux/${{ matrix.artifact_arch }}
     runs-on: ${{ matrix.runner }}
@@ -67,8 +69,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {runner: ubuntu-latest,    artifact_arch: x86_64}
-          - {runner: ubuntu-24.04-arm, artifact_arch: arm64}
+          - {runner: ubuntu-latest,    artifact_arch: x86_64, appimage_arch: x86_64}
+          - {runner: ubuntu-24.04-arm, artifact_arch: arm64,  appimage_arch: aarch64}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -88,12 +90,60 @@ jobs:
           key: noto-sans-sc-font
       - name: Download font
         run: make fonts
-      - name: Build and archive
+      - name: Build binary
+        run: go build -o ${{ env.GUI }} ./cmd/${{ env.GUI }}
+
+      - name: Archive (versioned .tar.gz)
         run: |
           VERSION="${{ github.ref_name }}"
-          ARCHIVE="${{ env.GUI }}-${VERSION}-linux-${{ matrix.artifact_arch }}"
-          go build -o ${{ env.GUI }} ./cmd/${{ env.GUI }}
-          tar czf "${ARCHIVE}.tar.gz" ${{ env.GUI }}
+          tar czf "${{ env.GUI }}-${VERSION}-linux-${{ matrix.artifact_arch }}.tar.gz" ${{ env.GUI }}
+
+      - name: Package AppImage (stable filename)
+        run: |
+          # Download appimagetool for this architecture
+          TOOL="appimagetool-${{ matrix.appimage_arch }}.AppImage"
+          curl -fsSL -o appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/${TOOL}"
+          chmod +x appimagetool
+
+          # Build AppDir structure
+          mkdir -p AppDir/usr/bin
+          cp ${{ env.GUI }} AppDir/usr/bin/
+          cp packaging/linux/hello-world-gui.desktop AppDir/
+
+          # Scale source icon to 256x256 for AppImage
+          convert hello_world_icon.png -resize 256x256 AppDir/hello-world-gui.png
+
+          # AppRun entry-point
+          printf '#!/bin/sh\nexec "$APPDIR/usr/bin/hello-world-gui" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+
+          # Build the AppImage (APPIMAGE_EXTRACT_AND_RUN avoids needing FUSE)
+          ARCH=${{ matrix.appimage_arch }} APPIMAGE_EXTRACT_AND_RUN=1 \
+            ./appimagetool AppDir \
+            "${{ env.GUI }}-linux-${{ matrix.appimage_arch }}.AppImage"
+
+      - name: Package .deb (stable filename)
+        run: |
+          DEB_ARCH=$(dpkg --print-architecture)   # amd64 or arm64
+          PKG=deb-staging
+          mkdir -p ${PKG}/DEBIAN ${PKG}/usr/bin \
+                   ${PKG}/usr/share/applications \
+                   ${PKG}/usr/share/pixmaps
+          cp ${{ env.GUI }}                                        ${PKG}/usr/bin/
+          cp packaging/linux/hello-world-gui.desktop               ${PKG}/usr/share/applications/
+          cp AppDir/hello-world-gui.png                            ${PKG}/usr/share/pixmaps/
+          cat > ${PKG}/DEBIAN/control <<EOF
+          Package: hello-world-gui
+          Version: ${{ github.ref_name }}
+          Architecture: ${DEB_ARCH}
+          Maintainer: chrplr
+          Description: Hello World graphical application
+           A simple Hello World GUI built with Go and Gio.
+          EOF
+          dpkg-deb --build ${PKG} \
+            "${{ env.GUI }}-linux-${{ matrix.artifact_arch }}.deb"
+
       - uses: actions/upload-artifact@v4
         with:
           name: gui-linux-${{ matrix.artifact_arch }}
@@ -102,6 +152,7 @@ jobs:
   # ── GUI · macOS ────────────────────────────────────────────────────────────
   # Native CGO build using Gio's Metal backend. No extra packages required.
   # macos-latest = Apple Silicon (arm64).
+  # Produces: versioned .tar.gz + .app bundle zip (stable filename).
   build-gui-macos:
     name: GUI · macOS/${{ matrix.artifact_arch }}
     runs-on: ${{ matrix.runner }}
@@ -123,12 +174,39 @@ jobs:
           key: noto-sans-sc-font
       - name: Download font
         run: make fonts
-      - name: Build and archive
+      - name: Build binary
+        run: go build -o ${{ env.GUI }} ./cmd/${{ env.GUI }}
+
+      - name: Archive (versioned .tar.gz)
         run: |
           VERSION="${{ github.ref_name }}"
-          ARCHIVE="${{ env.GUI }}-${VERSION}-macos-${{ matrix.artifact_arch }}"
-          go build -o ${{ env.GUI }} ./cmd/${{ env.GUI }}
-          tar czf "${ARCHIVE}.tar.gz" ${{ env.GUI }}
+          tar czf "${{ env.GUI }}-${VERSION}-macos-${{ matrix.artifact_arch }}.tar.gz" ${{ env.GUI }}
+
+      - name: Create .icns icon
+        run: |
+          # Build an iconset from the source PNG using sips (built-in on macOS)
+          mkdir -p hello-world-gui.iconset
+          for size in 16 32 128 256 512; do
+            sips -z $size $size hello_world_icon.png \
+              --out hello-world-gui.iconset/icon_${size}x${size}.png
+            sips -z $((size*2)) $((size*2)) hello_world_icon.png \
+              --out hello-world-gui.iconset/icon_${size}x${size}@2x.png
+          done
+          iconutil -c icns hello-world-gui.iconset -o hello-world-gui.icns
+
+      - name: Package .app bundle (stable filename)
+        run: |
+          VERSION="${{ github.ref_name }}"
+          APP="Hello World GUI.app"
+          mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
+          cp ${{ env.GUI }}       "${APP}/Contents/MacOS/"
+          cp hello-world-gui.icns "${APP}/Contents/Resources/"
+          sed "s/VERSION_PLACEHOLDER/${VERSION}/g" \
+            packaging/macos/Info.plist > "${APP}/Contents/Info.plist"
+          # ditto preserves macOS metadata and sets correct permissions
+          ditto -c -k --keepParent "${APP}" \
+            "${{ env.GUI }}-macos-${{ matrix.artifact_arch }}-app.zip"
+
       - uses: actions/upload-artifact@v4
         with:
           name: gui-macos-${{ matrix.artifact_arch }}
@@ -136,6 +214,7 @@ jobs:
 
   # ── GUI · Windows ──────────────────────────────────────────────────────────
   # Gio's D3D11 backend is pure Go → CGO_ENABLED=0, cross-compiled from Linux.
+  # Produces: versioned .zip + NSIS installer (stable filename).
   build-gui-windows:
     name: GUI · Windows/${{ matrix.artifact_arch }}
     runs-on: ubuntu-latest
@@ -151,6 +230,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Install tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends nsis imagemagick
+          go install github.com/tc-hib/go-winres@latest
       - name: Cache font
         uses: actions/cache@v4
         with:
@@ -158,17 +242,51 @@ jobs:
           key: noto-sans-sc-font
       - name: Download font
         run: make fonts
-      - name: Build and archive
+      - name: Prepare Windows icon
+        run: |
+          # Multi-size .ico for NSIS (installer icon + Add/Remove Programs entry)
+          convert hello_world_icon.png \
+            -define icon:auto-resize=256,48,32,16 \
+            packaging/windows/hello-world-gui.ico
+
+          # Embed icon + GUI manifest into the binary via Windows resource (.syso) files.
+          # go-winres creates rsrc_windows_{amd64,arm64,...}.syso in the package dir;
+          # the Go linker picks the right one automatically based on GOARCH.
+          go-winres simply \
+            --icon hello_world_icon.png \
+            --manifest gui \
+            --product-version "${{ github.ref_name }}" \
+            --file-version "${{ github.ref_name }}" \
+            --out cmd/${{ env.GUI }}
+
+      - name: Build binary
         env:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+        run: go build -ldflags "-H windowsgui" -o ${{ env.GUI }}.exe ./cmd/${{ env.GUI }}
+
+      - name: Archive (versioned .zip)
         run: |
           VERSION="${{ github.ref_name }}"
-          BINARY="${{ env.GUI }}.exe"
-          ARCHIVE="${{ env.GUI }}-${VERSION}-windows-${{ matrix.artifact_arch }}"
-          go build -o "$BINARY" ./cmd/${{ env.GUI }}
-          zip "${ARCHIVE}.zip" "$BINARY"
+          zip "${{ env.GUI }}-${VERSION}-windows-${{ matrix.artifact_arch }}.zip" \
+            ${{ env.GUI }}.exe
+
+      - name: Package NSIS installer (stable filename)
+        run: |
+          VERSION="${{ github.ref_name }}"
+          # Run makensis from a staging dir containing the exe and the script
+          mkdir nsis-staging
+          cp ${{ env.GUI }}.exe                    nsis-staging/
+          cp packaging/windows/hello-world-gui.nsi nsis-staging/
+          cp packaging/windows/hello-world-gui.ico nsis-staging/
+          cd nsis-staging
+          makensis \
+            -DVERSION="${VERSION}" \
+            -DARCH="${{ matrix.artifact_arch }}" \
+            hello-world-gui.nsi
+          mv hello-world-gui-windows-${{ matrix.artifact_arch }}-setup.exe ../
+
       - uses: actions/upload-artifact@v4
         with:
           name: gui-windows-${{ matrix.artifact_arch }}

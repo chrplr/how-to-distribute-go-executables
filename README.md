@@ -30,7 +30,7 @@ done
 Yet, packaging Go binaries to distribute to end-users on various platforms is not always easy. In particular, Graphical applications often require assets (graphic or sound files, fonts,...) and are more tricky to distribute.
 
 
-This document describes a possible approach. 
+This document describes a possible approach.
 
 The current project features two simple "Hello World" applications:
 
@@ -42,6 +42,141 @@ cmd/
 
 
 The CLI prints "Hello, 世界" to the terminal and exits. The GUI opens a window displaying "Hello, 世界".
+
+If you just want to try the apps, grab an installer from the [GitHub releases](#building-executables-and-installers-with-github-actions) below. If you want to build from source, see [Building with Make](#building-with-make).
+
+## Building executables and installers with GitHub Actions
+
+If your project is linked to a remote repository on GitHub, **you can compile and package your
+software on GitHub's machines.** The result appears in the *Releases* section of your project page.
+
+Check out the [release.yml](.github/workflows/release.yml) file for this very project.
+It follows the [Releases Naming Conventions](Releases-Naming-Conventions.md) described in this repo.
+
+
+### Using the installers released by GitHub
+
+Installers use **stable filenames** (no version number), so these links always point to the
+latest release and never need updating.
+
+#### Linux (x86_64)
+
+Download the AppImage — a self-contained executable that runs on any modern Linux distribution
+without installation:
+
+```bash
+curl -LO https://github.com/chrplr/how-to-distribute-go-executables/releases/latest/download/hello-world-gui-linux-x86_64.AppImage
+chmod +x hello-world-gui-linux-x86_64.AppImage
+./hello-world-gui-linux-x86_64.AppImage
+```
+
+Or install the Debian/Ubuntu package:
+
+```bash
+curl -LO https://github.com/chrplr/how-to-distribute-go-executables/releases/latest/download/hello-world-gui-linux-x86_64.deb
+sudo dpkg -i hello-world-gui-linux-x86_64.deb
+hello-world-gui
+```
+
+#### Windows (x86_64)
+
+Download and run
+[hello-world-gui-windows-x86_64-setup.exe](https://github.com/chrplr/how-to-distribute-go-executables/releases/latest/download/hello-world-gui-windows-x86_64-setup.exe).
+The installer places the app in `Program Files`, creates a desktop shortcut, and registers an
+uninstaller in "Add or Remove Programs".
+
+On first use, Microsoft Defender may show a "Windows protected your PC" warning.
+Click **More info** → **Run anyway** to proceed.
+
+#### macOS (M1, M2, M3, M4 — Apple Silicon)
+
+Download
+[hello-world-gui-macos-arm64-app.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/latest/download/hello-world-gui-macos-arm64-app.zip),
+unzip it, and drag **Hello World GUI.app** to your Applications folder.
+
+> [!WARNING]
+> macOS Gatekeeper will block the app on first launch because it is not signed with an Apple
+> Developer certificate. See
+> [macOS installation and security](https://chrplr.github.io/note-about-macos-unsigned-apps)
+> to bypass this.
+
+---
+
+### Installing the raw binaries released by GitHub
+
+The releases are at <https://github.com/chrplr/how-to-distribute-go-executables/releases>.
+Raw archives include the version number in their filename.
+
+#### Linux (x86_64)
+
+**GUI**: Download [hello-world-gui-v0.1.1-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-linux-x86_64.tar.gz),
+untar it, and run the binary.
+
+**CLI**: Download [hello-world-cli-v0.1.1-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-linux-x86_64.tar.gz),
+open a terminal in the folder, and run `./hello-world-cli`.
+
+#### Windows (x86_64)
+
+**GUI**: [hello-world-gui-v0.1.1-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-windows-x86_64.zip)
+
+**CLI**: [hello-world-cli-v0.1.1-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-windows-x86_64.zip)
+
+On first use, Microsoft Defender may show a "Windows protected your PC" warning.
+Click **More info** → **Run anyway** to proceed.
+
+#### macOS (M1, M2, ...)
+
+**GUI**: [hello-world-gui-v0.1.1-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-macos-arm64.tar.gz)
+
+**CLI**: [hello-world-cli-v0.1.1-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-macos-arm64.tar.gz)
+
+At first start your application will be blocked by macOS Gatekeeper, because it is not signed
+with an Apple Developer certificate. See
+[macOS installation and security](https://chrplr.github.io/note-about-macos-unsigned-apps)
+to address this.
+
+---
+
+### Running the GUI in a browser (WebAssembly)
+
+The GitHub release also includes a WebAssembly bundle (`hello-world-gui-*-web.zip`) that runs
+the GUI directly in any modern browser via WebGL — no installation needed.
+
+To build and run it locally:
+
+**1. Build the bundle**
+
+```bash
+make web
+```
+
+This compiles the GUI to WebAssembly and assembles everything into `bin/web/`:
+
+```
+bin/web/
+├── hello-world-gui.wasm   # compiled application
+├── wasm_exec.js           # Go runtime glue (copied from your Go toolchain)
+└── index.html             # loader page
+```
+
+**2. Start a local HTTP server**
+
+```bash
+make serve
+```
+
+This runs `python3 -m http.server 8080` inside `bin/web/`.
+
+> **Why HTTP?** Browsers block `fetch()` on `file://` URLs, so WebAssembly
+> cannot be loaded by opening `index.html` directly from disk.
+
+**3. Open the page**
+
+Navigate to <http://localhost:8080> in your browser. The Gio window will render
+inside the page and display "Hello, 世界".
+
+Press `Ctrl+C` in the terminal to stop the server.
+
 
 ## Building with Make
 
@@ -109,84 +244,3 @@ backend varies by OS:
 | `js/wasm` | yes | WebGL backend, no CGO needed |
 
 
-## Creating the binaries with GitHub Actions
-
-If your project is linked to a remote repository on GitHub, **you can compile and package your
-software on GitHub's machines.** The result appears in the *Releases* section of your project page.
-
-Check out the [release.yml](.github/workflows/release.yml) file for this very project.
-It follows the [Releases Naming Conventions](Releases-Naming-Conventions.md) described in this repo.
-
-
-### Installing and running Github's binarys
-
-The relases are at <https://github.com/chrplr/how-to-distribute-go-executables/releases>
-
-### Linux (x86_64)
-
-**GUI**: Download [hello-world-gui-v0.1.1-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-linux-x86_64.tar.gz)
-Untar it, and click on the app. It should just work.
-
-**CLI**: Download [hello-world-cli-v0.1.1-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-linux-x86_64.tar.gz)Open a terminal int the folder, Enter `./hello-world-cli` and press Enter.
-
-### Windows (x86_64)
-
-**GUI**: [hello-world-gui-v0.1.1-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-windows-x86_64.zip)
-
-**CLI**: [[hello-world-cli-v0.1.1-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-windows-x86_64.zip)
-
-On first use, Microsoft Defender may warn you that the program is dangerous, but you can
-click on "More info" and start it anyway.
-
-### macOS (M1, M2, ...)
-
-**GUI**: https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-gui-v0.1.1-macos-arm64.tar.gz
-
-**CLI**: https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.1/hello-world-cli-v0.1.1-macos-arm64.tar.gz
-
-At first start, your application will be blocked with a more or less scary message from your Mac.
-This is because macOS includes a security system called Gatekeeper that checks whether an
-application has been reviewed and digitally signed by Apple.
-It is not the case for applications distributed here, as signing requires an Apple Developer account.
-
-See [macOS installation and security](https://chrplr.github.io/note-about-macos-unsigned-apps) to address the issue.
-
-
-## Running the GUI in a browser (WebAssembly)
-
-The graphical version (`cmd/hello-world-gui`) is built with [Gio](https://gioui.org/)
-which supports WebAssembly via WebGL. You can run it in any modern browser with
-two commands.
-
-**1. Build the WebAssembly bundle**
-
-```bash
-make web
-```
-
-This compiles the GUI to WebAssembly and assembles everything into `bin/web/`:
-
-```
-bin/web/
-├── hello-world-gui.wasm   # compiled application
-├── wasm_exec.js           # Go runtime glue (copied from your Go toolchain)
-└── index.html             # loader page
-```
-
-**2. Start a local HTTP server**
-
-```bash
-make serve
-```
-
-This runs `python3 -m http.server 8080` inside `bin/web/`.
-
-> **Why HTTP?** Browsers block `fetch()` on `file://` URLs, so WebAssembly
-> cannot be loaded by opening `index.html` directly from disk.
-
-**3. Open the page**
-
-Navigate to <http://localhost:8080> in your browser. The Gio window will render
-inside the page and display "Hello, 世界".
-
-Press `Ctrl+C` in the terminal to stop the server.

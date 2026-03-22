@@ -6,6 +6,9 @@ GUI    := hello-world-gui
 # Remove these if your system has libvulkan-dev and libxkbcommon-x11-dev.
 GUI_TAGS_LINUX := nox11 novulkan
 
+# On Windows, suppress the console window by setting the PE subsystem to GUI.
+GUI_LDFLAGS := -ldflags "-H windowsgui"
+
 # Noto Sans SC — OFL-licensed variable font with full CJK coverage (~17 MB).
 NOTO_URL  := https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf
 NOTO_FONT := cmd/$(GUI)/fonts/NotoSansSC.ttf
@@ -108,13 +111,14 @@ build-multiplatform-gui:
 	fi
 
 	@# windows — D3D11 backend is pure Go, no CGO needed
+	@# -H windowsgui suppresses the console window on Windows
 	@echo "  GUI  windows/amd64..."
 	@GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
-		go build -o bin/multiplatform/$(GUI)-windows-amd64.exe ./cmd/$(GUI)
+		go build $(GUI_LDFLAGS) -o bin/multiplatform/$(GUI)-windows-amd64.exe ./cmd/$(GUI)
 
 	@echo "  GUI  windows/arm64..."
 	@GOOS=windows GOARCH=arm64 CGO_ENABLED=0 \
-		go build -o bin/multiplatform/$(GUI)-windows-arm64.exe ./cmd/$(GUI)
+		go build $(GUI_LDFLAGS) -o bin/multiplatform/$(GUI)-windows-arm64.exe ./cmd/$(GUI)
 
 	@# darwin — Metal backend requires CGO + osxcross; skipped
 	@echo "  GUI  darwin/amd64... SKIPPED (Metal backend requires osxcross)"

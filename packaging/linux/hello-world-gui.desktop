@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Hello World GUI
+Comment=Hello World graphical application
+Exec=hello-world-gui
+Icon=hello-world-gui
+Type=Application
+Categories=Utility;
+Terminal=false
