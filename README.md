@@ -45,6 +45,22 @@ The CLI prints "Hello, 世界" to the terminal and exits. The GUI opens a window
 
 If you just want to try the apps, grab an installer from the [GitHub releases](#building-executables-and-installers-with-github-actions) below. If you want to build from source, see [Building with Make](#building-with-make).
 
+## Contents
+
+**The distribution problem.** Compiling a Go binary is easy; getting it onto other people's
+machines in a form they can double-click is not — GUI apps need icons, fonts, and OS-specific
+installers, and unsigned apps trip security warnings. This repo shows one end-to-end approach,
+driven entirely by a tagged Git push.
+
+- [Using the installers released by GitHub](#using-the-installers-released-by-github) — AppImage / `.deb`, Windows setup, macOS `.app`
+- [Installing the raw binaries released by GitHub](#installing-the-raw-binaries-released-by-github)
+- [Running the GUI in a browser (WebAssembly)](#running-the-gui-in-a-browser-webassembly)
+- [Building with Make](#building-with-make) — targets, GUI prerequisites, build support matrix
+
+The three files that do the real work: the [Makefile](Makefile) (local builds),
+[.github/workflows/release.yml](.github/workflows/release.yml) (CI build + packaging + publish),
+and [Releases-Naming-Conventions.md](Releases-Naming-Conventions.md) (artifact-naming rules).
+
 ## Building executables and installers with GitHub Actions
 
 If your project is linked to a remote repository on GitHub, **you can compile and package your
@@ -94,6 +110,9 @@ Download
 [hello-world-gui-macos-arm64-app.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/latest/download/hello-world-gui-macos-arm64-app.zip),
 unzip it, and drag **Hello World GUI.app** to your Applications folder.
 
+Only Apple Silicon (arm64) builds are published. To support Intel Macs you would add a
+`darwin/amd64` target to the release workflow.
+
 > [!WARNING]
 > macOS Gatekeeper will block the app on first launch because it is not signed with an Apple
 > Developer certificate. See
@@ -104,36 +123,23 @@ unzip it, and drag **Hello World GUI.app** to your Applications folder.
 
 ### Installing the raw binaries released by GitHub
 
-The releases are at <https://github.com/chrplr/how-to-distribute-go-executables/releases>.
-Raw archives include the version number in their filename.
+Raw binary archives embed the version number in their filename (e.g.
+`hello-world-gui-vX.Y.Z-linux-x86_64.tar.gz`), so — unlike the stable-name installers above —
+their download URLs change with every release. Rather than hard-code a version here, browse the
+[**Releases page**](https://github.com/chrplr/how-to-distribute-go-executables/releases) and pick
+the archive for your platform:
 
-#### Linux (x86_64)
+| Platform | GUI archive | CLI archive |
+|---|---|---|
+| Linux x86_64 | `hello-world-gui-vX.Y.Z-linux-x86_64.tar.gz` | `hello-world-cli-vX.Y.Z-linux-x86_64.tar.gz` |
+| Windows x86_64 | `hello-world-gui-vX.Y.Z-windows-x86_64.zip` | `hello-world-cli-vX.Y.Z-windows-x86_64.zip` |
+| macOS arm64 | `hello-world-gui-vX.Y.Z-macos-arm64.tar.gz` | `hello-world-cli-vX.Y.Z-macos-arm64.tar.gz` |
 
-**GUI**: Download [hello-world-gui-v0.1.3-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-gui-v0.1.3-linux-x86_64.tar.gz),
-untar it, and run the binary.
-
-**CLI**: Download [hello-world-cli-v0.1.3-linux-x86_64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-cli-v0.1.3-linux-x86_64.tar.gz),
-open a terminal in the folder, and run `./hello-world-cli`.
-
-#### Windows (x86_64)
-
-**GUI**: [hello-world-gui-v0.1.3-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-gui-v0.1.3-windows-x86_64.zip)
-
-**CLI**: [hello-world-cli-v0.1.3-windows-x86_64.zip](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-cli-v0.1.3-windows-x86_64.zip)
-
-On first use, Microsoft Defender may show a "Windows protected your PC" warning.
-Click **More info** → **Run anyway** to proceed.
-
-#### macOS (M1, M2, ...)
-
-**GUI**: [hello-world-gui-v0.1.3-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-gui-v0.1.3-macos-arm64.tar.gz)
-
-**CLI**: [hello-world-cli-v0.1.3-macos-arm64.tar.gz](https://github.com/chrplr/how-to-distribute-go-executables/releases/download/v0.1.3/hello-world-cli-v0.1.3-macos-arm64.tar.gz)
-
-At first start your application will be blocked by macOS Gatekeeper, because it is not signed
-with an Apple Developer certificate. See
-[macOS installation and security](https://chrplr.github.io/note-about-macos-unsigned-apps)
-to address this.
+- **Linux**: untar the archive and run the binary (`./hello-world-cli`, or `./hello-world-gui`).
+- **Windows**: unzip and run the `.exe`. Microsoft Defender may show a "Windows protected your
+  PC" warning — click **More info** → **Run anyway**.
+- **macOS**: untar and run. Gatekeeper will block the unsigned app on first launch; see
+  [macOS installation and security](https://chrplr.github.io/note-about-macos-unsigned-apps).
 
 ---
 
@@ -185,6 +191,7 @@ Press `Ctrl+C` in the terminal to stop the server.
 * [Go](https://go.dev/dl/) 1.25 or later
 * `make`
 * `curl` (used by `make fonts` to download the embedded CJK font)
+* `python3` (only for `make serve`, which starts a local web server for the WebAssembly build)
 
 To compile the apps on your computer, a [Makefile](Makefile) is provided to build the project. All outputs go into `bin/`.
 
@@ -229,11 +236,11 @@ sudo apt install libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
 
 
 
-### Cross-compilation notes
+### Build support matrix
 
 The CLI is pure Go (`CGO_ENABLED=0`) and cross-compiles to all targets without
 any extra tooling. The GUI uses [Gio](https://gioui.org/), whose rendering
-backend varies by OS:
+backend varies by OS (some rows below are native builds rather than cross-compiles):
 
 | Target | Supported | Notes |
 |---|---|---|
@@ -249,4 +256,12 @@ Author: Christophe Pallier
 
 Date: 2026/03/22
 
-License: CC BY-SA (see [LICENSE.txt](LICENSE.txt))
+## License
+
+This project is dual-licensed so the build recipes are free to reuse:
+
+- **Documentation and prose** (this README and the naming-conventions guide):
+  CC BY-SA — see [LICENSE.txt](LICENSE.txt).
+- **Build recipes and code** (the `Makefile`, `.github/workflows/`, `packaging/`, and the Go
+  sources under `cmd/`): MIT — see [LICENSE-CODE.txt](LICENSE-CODE.txt) — so you can copy them
+  into your own projects without the ShareAlike obligation.
